@@ -71,6 +71,36 @@ For each stage:
 Never skip a stage because a later gate happens to be green already, and never run stages
 out of order.
 
+## Step 3b — when an agent reports a FINDING
+
+There are two different reds, and they are handled differently.
+
+**The agent's own work is wrong.** Its gate is red because of what it just did. It fixes it
+itself — that is the retry loop above.
+
+**The work underneath is wrong.** The agent is blocked by something it is forbidden to
+touch, and says so with `FINDING:`. Retrying it is useless; it will report the same thing
+again. Route it instead:
+
+| Who reports it | What it means | Send it to |
+|----------------|---------------|-----------|
+| Coder | a scenario is wrong, impossible, or self-contradictory | **the user** — the spec is a human decision |
+| Cleaner | a test asserts the wrong behaviour | **Coder** |
+| Hardener | a mutant survives because the code is wrong, not the test | **Coder** |
+| QA | the built system disagrees with the QA procedure | **Coder** |
+
+When you send a finding to the Coder, dispatch a **fresh** Coder agent with the finding text
+and nothing else. Then **re-run every stage from the Coder onwards.** A code change
+invalidates the Cleaner's refactoring, the Hardener's mutation score and the QA run — those
+stages passed against code that no longer exists.
+
+This is the part that makes it a loop rather than a pipeline. Do not shortcut it by re-running
+only the stage that reported the finding.
+
+Count a finding-and-repair as one attempt at the stage that reported it. If the same stage
+reports a second finding after a Coder repair, stop and bring both to the user: two rounds
+usually means the specification is wrong, not the code.
+
 ## Step 3a — the one place you pause
 
 The Specifier has **no deterministic gate behind it**. No machine can check whether a
@@ -95,8 +125,9 @@ Keep it short. The user wants to know what the machine decided, not what the age
 
 - A stage-by-stage table: agent, attempts needed, final verdict.
 - The headline numbers the gates produced — mutation score, worst CRAP score, coverage.
-- Anything the QA agent flagged as a **finding** — where the built system disagreed with the
-  QA procedure. These matter most; they are the bugs that survived four other agents.
+- Every `FINDING:` any agent raised, who raised it, and what the Coder changed in response.
+  These matter most — they are the defects that the gates caught but the agents could not fix
+  on their own, and they are the closest thing you get to a bug report from this process.
 - Every `# QUESTION:` the Specifier raised, and how it was settled.
 - Any stage that needed more than one attempt, and what the gate said the first time. That
   is where your loop is weak, and it is the most useful thing you can tell the user.

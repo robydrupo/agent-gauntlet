@@ -11,6 +11,17 @@
 #     tools/check-referee.sh --regenerate
 #     ./gauntlet.sh --list
 
+# ---------------------------------------------------------------------------- thresholds
+# Every number the gates judge against, in one place. Gates read these variables and pass
+# them to their tools, so this file is the only place a number is written down.
+#
+# gauntlet.conf is protected by gate 0, so an agent that lowers one turns the next run red.
+# Changing a number is a human act: edit, then `tools/check-referee.sh --regenerate`.
+COVERAGE_LINE_MINIMUM=1.00
+COVERAGE_BRANCH_MINIMUM=1.00
+CRAP_THRESHOLD=30
+MUTATION_THRESHOLD=100
+
 # ---------------------------------------------------------------------------- stories
 # Where the human-written requirements come from. The Specifier reads plain markdown out of
 # STORY_DIR, so anything that can write a markdown file can be your story source.
@@ -101,19 +112,20 @@ gate_acceptance() {
 
 # A hard number, not a trend. "Coverage went up" is not a gate.
 gate_coverage() {
-  :
+  : # pass $COVERAGE_LINE_MINIMUM through to your coverage tool, e.g.
+    #   coverage report --fail-under=$(echo "$COVERAGE_LINE_MINIMUM * 100" | bc)
 }
 
 # CRAP = complexity² × (1 − coverage)³ + complexity, per method.
 # tools/crap.py reads a JaCoCo XML report; see docs/GATES.md for other ecosystems.
 gate_crap() {
-  : # CRAP_THRESHOLD=30 tools/crap.py path/to/jacoco.xml
+  : # CRAP_THRESHOLD="$CRAP_THRESHOLD" tools/crap.py path/to/jacoco.xml
 }
 
 # The gate that catches tests which run code without verifying it.
 # Java: PIT. Python: mutmut / cosmic-ray. JS/TS: Stryker. Go: go-mutesting.
 gate_mutation() {
-  :
+  : # pass $MUTATION_THRESHOLD through to your mutation tool
 }
 
 # Executable QA procedures. These drive the built system from the outside — no imports,

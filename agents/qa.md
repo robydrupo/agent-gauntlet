@@ -32,8 +32,9 @@ The script exits 0 or it exits 1, and it does so identically every single run.
 
 ## What you must NOT do
 - Do **not** modify production code or tests. If the system behaves differently from the QA
-  procedure, that is a **finding** — report it. Do not fix it, and do not adjust the golden
-  file to match the bug.
+  procedure, report it as `FINDING: <what the procedure says, what the system does>`. Do not
+  fix it, and never adjust the golden file to match the bug — a golden file written from
+  observed behaviour tests nothing.
 - Do **not** read `specs/*.feature` or the unit tests. You are the independent check. If you
   reproduce what the Coder already asserted, you have verified nothing.
 - Do **not** edit `gauntlet.sh` or `gauntlet.conf`.

@@ -12,6 +12,12 @@
 
 export CARGO_TERM_COLOR=never
 
+# ---------------------------------------------------------------------------- thresholds
+# Every number the gates judge against. One place to look, one place to change.
+COVERAGE_LINE_MINIMUM=1.00
+CRAP_THRESHOLD=30
+MUTATION_THRESHOLD=100
+
 # ---------------------------------------------------------------------------- stories
 STORY_DIR="docs/stories"
 
@@ -81,7 +87,8 @@ gate_acceptance() {
 }
 
 gate_coverage() {
-  cargo llvm-cov --package core --lib --fail-under-lines 100
+  cargo llvm-cov --package core --lib \
+    --fail-under-lines "$(echo "$COVERAGE_LINE_MINIMUM * 100" | bc)"
 }
 
 # There is no CRAP gate here. CRAP needs per-function cyclomatic complexity and per-function

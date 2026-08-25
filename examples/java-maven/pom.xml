@@ -14,6 +14,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <junit.version>5.10.2</junit.version>
     <cucumber.version>7.15.0</cucumber.version>
+
+    <!-- Defaults. The real values live in gauntlet.conf and are passed in with -D,
+         so there is exactly one place to look. -->
+    <coverage.line.minimum>1.00</coverage.line.minimum>
+    <coverage.branch.minimum>1.00</coverage.branch.minimum>
+    <mutation.threshold>100</mutation.threshold>
   </properties>
 
   <dependencyManagement>
@@ -96,12 +102,12 @@
                     <limit>
                       <counter>LINE</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>1.00</minimum>
+                      <minimum>${coverage.line.minimum}</minimum>
                     </limit>
                     <limit>
                       <counter>BRANCH</counter>
                       <value>COVEREDRATIO</value>
-                      <minimum>1.00</minimum>
+                      <minimum>${coverage.branch.minimum}</minimum>
                     </limit>
                   </limits>
                 </rule>
@@ -119,7 +125,7 @@
         <configuration>
           <targetClasses><param>wordwrap.domain.*</param></targetClasses>
           <targetTests><param>wordwrap.domain.*</param></targetTests>
-          <mutationThreshold>100</mutationThreshold>
+          <mutationThreshold>${mutation.threshold}</mutationThreshold>
           <outputFormats>
             <outputFormat>HTML</outputFormat>
             <outputFormat>XML</outputFormat>

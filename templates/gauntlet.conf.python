@@ -8,6 +8,12 @@
 #
 # Install: ruff mypy pytest coverage behave import-linter mutmut radon
 
+# ---------------------------------------------------------------------------- thresholds
+# Every number the gates judge against. One place to look, one place to change.
+COVERAGE_LINE_MINIMUM=1.00
+CRAP_THRESHOLD=30
+MUTATION_THRESHOLD=100
+
 # ---------------------------------------------------------------------------- stories
 STORY_DIR="docs/stories"
 
@@ -70,7 +76,7 @@ gate_acceptance() {
 
 gate_coverage() {
   coverage run --source=src/core -m pytest -q tests/unit \
-    && coverage report --fail-under=100 --show-missing
+    && coverage report --fail-under="$(echo "$COVERAGE_LINE_MINIMUM * 100" | bc)" --show-missing
 }
 
 # tools/crap.py reads JaCoCo XML, which Python does not produce. To get a real CRAP gate you

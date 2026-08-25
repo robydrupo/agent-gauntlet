@@ -26,10 +26,26 @@ flowchart TD
     H --> G4{"QA scripts"}
     G4 -->|red| H
     G4 -->|green| Z["done"]
+
+    E -. "FINDING: a test is wrong" .-> D
+    F -. "FINDING: the code is wrong" .-> D
+    H -. "FINDING: the system is wrong" .-> D
+    D -. "FINDING: the spec is wrong" .-> R
 ```
 
-The only place you're needed is the diamond near the top. Everything below it is a machine
-deciding.
+Solid arrows are the normal path. Each agent loops on its own gates until they pass, and
+every stage re-runs all the earlier gates, so nobody fixes their gate by breaking someone
+else's.
+
+Dotted arrows are the interesting part. An agent that hits a problem it is **forbidden to
+fix** doesn't retry — it reports a `FINDING:` and the work goes back. The Hardener can't
+change production code, so a mutant that survives because of a real bug goes back to the
+Coder. The QA agent can't touch the golden file, so a system that misbehaves goes back to the
+Coder. After any of those, **every stage from the Coder onwards runs again** — the Cleaner's
+refactoring and the Hardener's mutation score were measured against code that no longer
+exists.
+
+The only place you're needed is the diamond near the top.
 
 ## Install
 
@@ -74,6 +90,20 @@ STAGE_HARDENER="unit mutation"
 ```
 
 Stages say which gates each agent has to pass before it's allowed to stop.
+
+Every number the gates judge against lives at the top of the same file:
+
+```sh
+COVERAGE_LINE_MINIMUM=1.00
+COVERAGE_BRANCH_MINIMUM=1.00
+CRAP_THRESHOLD=30          # per method; 30 is the conventional line
+MUTATION_THRESHOLD=100     # percent of mutants that must be killed
+```
+
+Gates pass these through to their tools, so there's one place to look and one place to
+change. `gauntlet.conf` is protected by gate 0, so an agent that quietly lowers a number
+turns the next run red — changing one is a human act, followed by
+`tools/check-referee.sh --regenerate`.
 
 **`architecture.md`** — your modules, which may depend on which, and how the system is
 invoked. Agents read this file. Back the dependency rules with a real tool (ArchUnit,

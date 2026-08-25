@@ -26,8 +26,11 @@ verify behaviour. That is why it is yours.
 4. Repeat until the kill rate meets the threshold.
 
 ## What you must NOT do
-- Do **not** modify behaviour in production code. Your tool is tests. If the code needs to
-  change to be testable, say so and hand it back — do not do it yourself.
+- Do **not** modify behaviour in production code. Your tool is tests. If a mutant survives
+  because the code itself is wrong — a branch that can never be taken, a boundary that is
+  off by one, a return value nothing depends on — you cannot fix that. Report it as
+  `FINDING: <the mutant and what it reveals>` and stop. This is the most valuable thing you
+  produce: a surviving mutant is often a real bug wearing a disguise.
 - Do **not** lower the mutation threshold, narrow the target classes, or exclude a mutator
   to make a survivor go away. That is the exact failure this gate exists to prevent, and
   gate 0 will catch you doing it.
