@@ -11,10 +11,11 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 BACKUP=$(mktemp -d)
 DOMAIN=src/main/java/wordwrap/domain/WordWrapper.java
 TESTS=src/test/java/wordwrap/domain/WordWrapperTest.java
-cp pom.xml "$BACKUP/" && cp "$DOMAIN" "$BACKUP/" && cp "$TESTS" "$BACKUP/"
+cp pom.xml gauntlet.conf "$BACKUP/" && cp "$DOMAIN" "$BACKUP/" && cp "$TESTS" "$BACKUP/"
 
 restore() {
   cp "$BACKUP/pom.xml" pom.xml
+  cp "$BACKUP/gauntlet.conf" gauntlet.conf
   cp "$BACKUP/$(basename "$DOMAIN")" "$DOMAIN"
   cp "$BACKUP/$(basename "$TESTS")" "$TESTS"
 }
@@ -51,8 +52,14 @@ echo "  green"
 
 echo
 echo "1. An agent lowers the mutation threshold to sneak past gate 7."
-sed -i '' 's|<mutationThreshold>100</mutationThreshold>|<mutationThreshold>60</mutationThreshold>|' pom.xml
-expect_red "gate 0 rejects a tampered pom.xml" ./gauntlet.sh mutation
+before=$(grep -c '^MUTATION_THRESHOLD=100' gauntlet.conf)
+sed -i '' 's/^MUTATION_THRESHOLD=100/MUTATION_THRESHOLD=60/' gauntlet.conf
+if [ "$before" -ne 1 ] || grep -q '^MUTATION_THRESHOLD=100' gauntlet.conf; then
+  echo "  BROKEN TEST     could not find MUTATION_THRESHOLD=100 in gauntlet.conf to tamper with"
+  failures=$((failures + 1))
+else
+  expect_red "gate 0 rejects a tampered gauntlet.conf" ./gauntlet.sh mutation
+fi
 restore
 
 echo
