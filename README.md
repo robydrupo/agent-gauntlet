@@ -36,11 +36,23 @@ deciding.
 ```sh
 git clone https://github.com/robydrupo/agent-gauntlet.git
 cd agent-gauntlet
+```
+
+**New project** — scaffolds a build file, `gauntlet.conf`, the agents and a starting
+`architecture.md`, then ends red because there's no code yet:
+
+```sh
+./new-project.sh java /path/to/myapp     # or rust, or python
+```
+
+**Existing project** — adds the machinery, overwrites nothing you've edited, leaves
+`gauntlet.conf` for you to wire up:
+
+```sh
 ./install.sh /path/to/your/project
 ```
 
-Copies the runner, two tools, five agent definitions and one skill. Won't overwrite files
-you've already edited.
+Either way, [docs/NEW-PROJECT.md](docs/NEW-PROJECT.md) walks through the first run.
 
 ## Set it up
 
