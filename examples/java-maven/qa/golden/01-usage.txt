@@ -1,0 +1,1 @@
+usage: wordwrap <width>   (text is read from stdin)

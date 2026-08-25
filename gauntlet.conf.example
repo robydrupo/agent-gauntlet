@@ -1,0 +1,106 @@
+# gauntlet.conf — your project's half of the gauntlet.
+#
+# gauntlet.sh is generic. Everything project-specific lives here: which gates exist, what
+# command each one runs, and which gates each agent in the loop must satisfy before it is
+# allowed to say it is finished.
+#
+# A gate is a shell function that exits 0 or non-zero. That is the entire contract. It must
+# be deterministic and it must not involve a language model.
+#
+# Copy this to gauntlet.conf and edit. Then:
+#     tools/check-referee.sh --regenerate
+#     ./gauntlet.sh --list
+
+# ---------------------------------------------------------------------------- referee
+# Files that define the gates. If one of these changes, gate 0 fails and every other
+# result is void. Globs are allowed. Include your stories: requirements are not the
+# agents' to rewrite.
+PROTECTED_FILES=(
+  gauntlet.sh
+  gauntlet.conf
+  tools/crap.py
+  tools/check-referee.sh
+  architecture.md
+  docs/stories/*.md
+  # add your build file: pom.xml / pyproject.toml / package.json ...
+)
+REFEREE_MANIFEST=".gauntlet/referee.sha256"
+
+# ---------------------------------------------------------------------------- gates
+# Order matters — they run in this order and stop at the first failure. Put the fast,
+# cheap gates first so an agent gets its feedback in seconds.
+#
+# Format: "name|human-readable label"
+GATES=(
+  "build|build"
+  "architecture|architecture rules (vs architecture.md)"
+  "unit|unit tests"
+  "acceptance|acceptance tests (vs specs/*.feature)"
+  "coverage|coverage thresholds"
+  "crap|CRAP analysis"
+  "mutation|mutation testing"
+  "qa|QA scripts (system driven from outside, golden output)"
+)
+
+gate_build() {
+  : # e.g.  mvn -q -B compile   |   npm run build   |   cargo build
+}
+
+# Executable form of architecture.md: which module may depend on which.
+# Java: ArchUnit. Python: import-linter. JS/TS: dependency-cruiser. Go: go-arch-lint.
+gate_architecture() {
+  :
+}
+
+gate_unit() {
+  : # e.g.  pytest -q   |   npm test   |   mvn -q test
+}
+
+# Acceptance tests written against the specs the Specifier produced.
+gate_acceptance() {
+  :
+}
+
+# A hard number, not a trend. "Coverage went up" is not a gate.
+gate_coverage() {
+  :
+}
+
+# CRAP = complexity² × (1 − coverage)³ + complexity, per method.
+# tools/crap.py reads a JaCoCo XML report; see docs/GATES.md for other ecosystems.
+gate_crap() {
+  : # CRAP_THRESHOLD=30 tools/crap.py path/to/jacoco.xml
+}
+
+# The gate that catches tests which run code without verifying it.
+# Java: PIT. Python: mutmut / cosmic-ray. JS/TS: Stryker. Go: go-mutesting.
+gate_mutation() {
+  :
+}
+
+# Executable QA procedures. These drive the built system from the outside — no imports,
+# no reaching inside — and diff against golden output.
+gate_qa() {
+  local scripts rc=0
+  scripts=$(find qa -maxdepth 1 -name '*.sh' 2>/dev/null | sort)
+  if [ -z "$scripts" ]; then
+    echo "  no executable QA scripts in qa/ — the QA agent has not run"
+    return 1
+  fi
+  for s in $scripts; do
+    echo "  running $s"
+    bash "$s" || rc=1
+  done
+  return $rc
+}
+
+# ---------------------------------------------------------------------------- stages
+# What each agent in the loop must get green before it is allowed to finish.
+# Agents invoke these by name: ./gauntlet.sh --stage coder
+#
+# Each stage includes every earlier stage's gates on purpose. An agent that fixes its own
+# gate by breaking an earlier one has not finished.
+STAGE_CODER="build architecture unit acceptance"
+STAGE_CLEANER="build architecture unit acceptance coverage crap"
+STAGE_HARDENER="build architecture unit acceptance coverage crap mutation"
+STAGE_QA="all"

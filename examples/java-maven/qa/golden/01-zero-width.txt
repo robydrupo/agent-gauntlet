@@ -1,0 +1,1 @@
+error: width must be greater than zero
