@@ -14,6 +14,7 @@
 #   ./gauntlet.sh 3 4              gates by number
 #   ./gauntlet.sh --stage coder    the gates one loop stage must satisfy
 #   ./gauntlet.sh --list           show the configured gates and stages
+#   ./gauntlet.sh --fetch-story 42 pull a story in from wherever you keep them
 #
 # Humans own this file and gauntlet.conf. Agents may not edit either, and may not lower a
 # threshold to get past a gate. Gate 0 checks that nobody did.
@@ -29,6 +30,7 @@ if [ ! -f "$CONF" ]; then
 fi
 
 # Defaults a project's conf may override.
+STORY_DIR="docs/stories"
 REFEREE_MANIFEST=".gauntlet/referee.sha256"
 PROTECTED_FILES=()
 GATES=()
@@ -61,6 +63,25 @@ gate_0_referee() {
 }
 
 # ---------------------------------------------------------------- argument handling
+
+# Stories can live anywhere: a plain file you wrote, a Linear issue, a GitHub issue, a row
+# in a spreadsheet. If the conf defines fetch_story(), this pulls one into $STORY_DIR.
+#
+# The referee is re-blessed straight afterwards, because a new story changes a protected
+# file. That is safe here and only here: you asked for this story, and no agent has run yet.
+# Nothing re-blesses anything once the loop is under way.
+if [ "${1:-}" = "--fetch-story" ]; then
+  if [ -z "${2:-}" ]; then echo "gauntlet: --fetch-story needs a story id" >&2; exit 1; fi
+  if ! declare -f fetch_story > /dev/null 2>&1; then
+    echo "gauntlet: $CONF defines no fetch_story() — stories are plain files in $STORY_DIR/" >&2
+    exit 1
+  fi
+  mkdir -p "$STORY_DIR"
+  fetch_story "$2" || exit 1
+  tools/check-referee.sh --regenerate
+  exit 0
+fi
+
 selected=""
 if [ "${1:-}" = "--list" ]; then
   echo

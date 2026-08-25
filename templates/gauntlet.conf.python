@@ -1,0 +1,118 @@
+# gauntlet.conf — Python.
+#
+# A starting point, not a finished config. Tool choices are right; flags may need adjusting.
+# Assumes:
+#
+#   src/core/      the domain. pure. no I/O.
+#   src/adapter/   the entry point. depends on core.
+#
+# Install: ruff mypy pytest coverage behave import-linter mutmut radon
+
+# ---------------------------------------------------------------------------- stories
+STORY_DIR="docs/stories"
+
+# ---------------------------------------------------------------------------- referee
+PROTECTED_FILES=(
+  gauntlet.sh
+  gauntlet.conf
+  pyproject.toml
+  .importlinter
+  tools/check-referee.sh
+  architecture.md
+  docs/stories/*.md
+)
+REFEREE_MANIFEST=".gauntlet/referee.sha256"
+
+# ---------------------------------------------------------------------------- gates
+GATES=(
+  "build|lint + types"
+  "architecture|architecture rules (import-linter vs architecture.md)"
+  "unit|unit tests"
+  "acceptance|acceptance tests (behave vs specs/*.feature)"
+  "coverage|coverage on core"
+  "crap|CRAP analysis"
+  "mutation|mutation testing on core (mutmut)"
+  "qa|QA scripts (system driven from outside, golden output)"
+)
+
+gate_build() {
+  ruff check . && mypy src/
+}
+
+# .importlinter holds the executable form of architecture.md, e.g.
+#   [importlinter:contract:layers]
+#   name = core must not import adapter
+#   type = layers
+#   layers = adapter | core
+gate_architecture() {
+  lint-imports
+}
+
+gate_unit() {
+  local n
+  n=$(find tests/unit -name 'test_*.py' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -eq 0 ]; then
+    echo "  no unit tests in tests/unit — the Coder has not run"
+    return 1
+  fi
+  pytest -q tests/unit
+}
+
+gate_acceptance() {
+  local n
+  n=$(find specs -maxdepth 1 -name '*.feature' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -eq 0 ]; then
+    echo "  no .feature files in specs/ — the Specifier has not run"
+    return 1
+  fi
+  behave specs/
+}
+
+gate_coverage() {
+  coverage run --source=src/core -m pytest -q tests/unit \
+    && coverage report --fail-under=100 --show-missing
+}
+
+# tools/crap.py reads JaCoCo XML, which Python does not produce. To get a real CRAP gate you
+# join per-function complexity with per-function coverage yourself:
+#
+#     radon cc src/core --json      -> complexity per function
+#     coverage json -o coverage.json -> line coverage per file
+#
+# Until that exists, this is a complexity ceiling instead — weaker, but deterministic and
+# still a stop condition for the Cleaner.
+gate_crap() {
+  radon cc src/core --min C --total-average --json | python3 -c '
+import json, sys
+blocks = [b for fns in json.load(sys.stdin).values() for b in fns]
+bad = [b for b in blocks if b.get("complexity", 0) > 10]
+for b in bad:
+    print(f"  {b[\"name\"]} (line {b[\"lineno\"]}) complexity {b[\"complexity\"]}")
+print(f"  {len(bad)} function(s) over complexity 10")
+sys.exit(1 if bad else 0)'
+}
+
+gate_mutation() {
+  mutmut run --paths-to-mutate src/core && mutmut results | grep -q 'survived' && return 1
+  return 0
+}
+
+gate_qa() {
+  local scripts rc=0
+  scripts=$(find qa -maxdepth 1 -name '*.sh' 2>/dev/null | sort)
+  if [ -z "$scripts" ]; then
+    echo "  no executable QA scripts in qa/ — the QA agent has not run"
+    return 1
+  fi
+  for s in $scripts; do
+    echo "  running $s"
+    bash "$s" || rc=1
+  done
+  return $rc
+}
+
+# ---------------------------------------------------------------------------- stages
+STAGE_CODER="build architecture unit acceptance"
+STAGE_CLEANER="build architecture unit acceptance coverage crap"
+STAGE_HARDENER="build architecture unit acceptance coverage crap mutation"
+STAGE_QA="all"

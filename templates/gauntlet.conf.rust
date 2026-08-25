@@ -1,0 +1,118 @@
+# gauntlet.conf — Rust / Cargo.
+#
+# A starting point, not a finished config. The tool choices are right; the flags may need
+# adjusting for your layout and versions. Assumes a workspace:
+#
+#   crates/core/    the domain. pure. no I/O.
+#   crates/cli/     the adapter. depends on core.
+#
+# Verified here: build, architecture, unit, qa.
+# Not verified here: acceptance, coverage, mutation — they need cucumber-rs,
+# cargo-llvm-cov and cargo-mutants installed. Install them before trusting those gates.
+
+export CARGO_TERM_COLOR=never
+
+# ---------------------------------------------------------------------------- stories
+STORY_DIR="docs/stories"
+
+# ---------------------------------------------------------------------------- referee
+PROTECTED_FILES=(
+  gauntlet.sh
+  gauntlet.conf
+  Cargo.toml
+  crates/core/Cargo.toml
+  crates/cli/Cargo.toml
+  tools/check-referee.sh
+  architecture.md
+  docs/stories/*.md
+)
+REFEREE_MANIFEST=".gauntlet/referee.sha256"
+
+# ---------------------------------------------------------------------------- gates
+GATES=(
+  "build|build + clippy"
+  "architecture|architecture rules (vs architecture.md)"
+  "unit|unit tests"
+  "acceptance|acceptance tests (cucumber-rs)"
+  "coverage|coverage on core (cargo-llvm-cov)"
+  "mutation|mutation testing on core (cargo-mutants)"
+  "qa|QA scripts (system driven from outside, golden output)"
+)
+
+gate_build() {
+  cargo clippy --workspace --all-targets -- -D warnings
+}
+
+# Rust has no ArchUnit. It doesn't need much of one: a crate cannot use another crate unless
+# Cargo.toml says so, which enforces dependency direction for free. What's left is checking
+# that nobody added the dependency, and that the pure crate stays pure.
+gate_architecture() {
+  local bad=0
+
+  if grep -qE '^\s*cli\s*=' crates/core/Cargo.toml 2>/dev/null; then
+    echo "  crates/core depends on cli — dependencies flow inward only"
+    bad=1
+  fi
+
+  local io
+  io=$(grep -rnE '\b(println!|eprintln!|print!|std::io|std::fs|std::net)' crates/core/src 2>/dev/null || true)
+  if [ -n "$io" ]; then
+    echo "  I/O in crates/core, which architecture.md forbids:"
+    echo "$io" | sed 's/^/    /'
+    bad=1
+  fi
+
+  [ $bad -eq 0 ] && echo "  core is pure and depends inward only"
+  return $bad
+}
+
+gate_unit() {
+  cargo test --workspace --lib
+}
+
+gate_acceptance() {
+  local n
+  n=$(find specs -maxdepth 1 -name '*.feature' 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$n" -eq 0 ]; then
+    echo "  no .feature files in specs/ — the Specifier has not run"
+    return 1
+  fi
+  cargo test --test acceptance
+}
+
+gate_coverage() {
+  cargo llvm-cov --package core --lib --fail-under-lines 100
+}
+
+# There is no CRAP gate here. CRAP needs per-function cyclomatic complexity and per-function
+# coverage in one report, which JaCoCo gives you and Rust's tooling does not. Either join
+# rust-code-analysis with `cargo llvm-cov --json` yourself, or drop the gate and lean on
+# clippy's cognitive-complexity lint instead:
+#
+#   gate_complexity() {
+#     cargo clippy --workspace -- -W clippy::cognitive_complexity -D warnings
+#   }
+
+gate_mutation() {
+  cargo mutants --package core --no-times
+}
+
+gate_qa() {
+  local scripts rc=0
+  scripts=$(find qa -maxdepth 1 -name '*.sh' 2>/dev/null | sort)
+  if [ -z "$scripts" ]; then
+    echo "  no executable QA scripts in qa/ — the QA agent has not run"
+    return 1
+  fi
+  for s in $scripts; do
+    echo "  running $s"
+    bash "$s" || rc=1
+  done
+  return $rc
+}
+
+# ---------------------------------------------------------------------------- stages
+STAGE_CODER="build architecture unit acceptance"
+STAGE_CLEANER="build architecture unit acceptance coverage"
+STAGE_HARDENER="build architecture unit acceptance coverage mutation"
+STAGE_QA="all"

@@ -11,6 +11,44 @@
 #     tools/check-referee.sh --regenerate
 #     ./gauntlet.sh --list
 
+# ---------------------------------------------------------------------------- stories
+# Where the human-written requirements come from. The Specifier reads plain markdown out of
+# STORY_DIR, so anything that can write a markdown file can be your story source.
+STORY_DIR="docs/stories"
+
+# Optional. Define this and `./gauntlet.sh --fetch-story <id>` pulls a story in before the
+# loop starts. Leave it out and stories are just files you write by hand.
+#
+# It must write $STORY_DIR/<id>-<slug>.md and print the path it wrote.
+#
+# The conf is sourced under `set -u`, so declare then assign — `local a="$1" b="$a"` reads
+# the *global* a and will blow up.
+#
+# GitHub issues:
+#   fetch_story() {
+#     local id="$1" out
+#     out="$STORY_DIR/$id-$(gh issue view "$id" --json title -q .title \
+#           | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-').md"
+#     gh issue view "$id" --json title,body \
+#       -q '"# Story \(.title)\n\n\(.body)"' > "$out"
+#     echo "$out"
+#   }
+#
+# Linear (needs LINEAR_API_KEY; untested here, adjust the jq path to taste):
+#   fetch_story() {
+#     local id="$1" out
+#     out="$STORY_DIR/$id.md"
+#     curl -sS https://api.linear.app/graphql \
+#       -H "Authorization: $LINEAR_API_KEY" -H 'Content-Type: application/json' \
+#       -d "{\"query\":\"{ issue(id: \\\"$id\\\") { title description } }\"}" \
+#       | python3 -c 'import json,sys; i=json.load(sys.stdin)["data"]["issue"]; \
+#                     print("# Story "+i["title"]+"\n\n"+(i["description"] or ""))' > "$out"
+#     echo "$out"
+#   }
+#
+# Whatever you use, the output is a markdown file. The Specifier never learns where it came
+# from, which is why swapping the source costs you nothing downstream.
+
 # ---------------------------------------------------------------------------- referee
 # Files that define the gates. If one of these changes, gate 0 fails and every other
 # result is void. Globs are allowed. Include your stories: requirements are not the
@@ -22,7 +60,7 @@ PROTECTED_FILES=(
   tools/check-referee.sh
   architecture.md
   docs/stories/*.md
-  # add your build file: pom.xml / pyproject.toml / package.json ...
+  # add your build file: pom.xml / pyproject.toml / package.json / Cargo.toml ...
 )
 REFEREE_MANIFEST=".gauntlet/referee.sha256"
 

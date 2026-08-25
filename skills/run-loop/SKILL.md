@@ -26,10 +26,15 @@ will be wrong. The gauntlet is the only thing that decides, and *you* run it —
 Run `./gauntlet.sh --list` to see this project's gates and stages. Gate and stage names are
 project-specific; never assume them.
 
-Then pick the story:
-- If the user named one (`01`, `01-checkout`, a path), use that.
-- Otherwise, if `docs/stories/` holds exactly one `.md` file, use it.
+Then get the story. Stories may live in files or in an issue tracker:
+- If `./gauntlet.sh --fetch-story <id>` is configured and the user gave an id that isn't a
+  local file, run it. It pulls the story in and re-blesses the referee.
+- If the user named a local story (`01`, `01-checkout`, a path), use that.
+- Otherwise, if the story directory holds exactly one `.md` file, use it.
 - Otherwise list them and ask which one.
+
+Either way the Specifier receives a path to a markdown file and never learns where it came
+from.
 
 ## Step 2 — establish the baseline
 
