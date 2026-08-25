@@ -6,6 +6,10 @@ You define the gates: build, tests, coverage, mutation testing, architecture rul
 work until every gate passes. `./gauntlet.sh` exits 0 or it doesn't, and no model gets a
 vote.
 
+The gates are plain shell — run them yourself in a terminal, or in CI. The agents are Claude
+Code subagents, driven by a `/run-loop` skill. The two halves are independent: the gauntlet
+is useful on its own, and it's what makes the agent half trustworthy.
+
 Works with any language. Ships with a Java example.
 
 ```mermaid
@@ -138,9 +142,26 @@ tools/check-referee.sh --regenerate
 
 ## Run it
 
+Two prompts, and it matters which one you're at.
+
+`./gauntlet.sh` is an ordinary shell script. It runs your gates and prints pass or fail. It
+never starts an agent, never writes code, and has no idea Claude exists. Run it in your
+terminal any time you want to know where things stand.
+
+`/run-loop` is a Claude Code skill. It's what actually dispatches the five agents, and it
+only works inside Claude Code, in the project directory.
+
 ```sh
+cd /path/to/your/project
+claude                     # then, at the Claude Code prompt:
+```
+```
 /run-loop 01
 ```
+
+The conductor shells out to `./gauntlet.sh` after every stage — same script you'd run by
+hand, same exit code. That's the point: the thing deciding whether the work is done is a
+script you can run yourself and check.
 
 Five agents run in order:
 
